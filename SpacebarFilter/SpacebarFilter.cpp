@@ -8,6 +8,8 @@
 static LARGE_INTEGER StartingTime = {0};
 static LARGE_INTEGER Frequency    = {0};
 
+#define FILTER_WINDOW (1000 * 60)
+
 bool isGood()
 {
     LARGE_INTEGER EndingTime;
@@ -21,13 +23,15 @@ bool isGood()
 
     StartingTime = EndingTime;
 
-    if (ElapsedMicroseconds.QuadPart > (1000 * 10))  // 10mS
+    if (ElapsedMicroseconds.QuadPart > FILTER_WINDOW)
     {
+        //std::cout << "good  " << ElapsedMicroseconds.QuadPart/1000 << std::endl;
         return true;
     }
     else
     {
-        return false;
+        //std::cout << "bad   " << ElapsedMicroseconds.QuadPart / 1000 << std::endl;
+        return false ;
     }
 }
 
@@ -51,20 +55,16 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
                     goodDown = isGood();
                     if (!goodDown)
                     { 
-                        std::cout << "bad down" << std::endl;
                         return 1;
                     }
-                    //std::cout << "good down" << std::endl; 
                 }
                 else if ((wParam == WM_KEYUP) || (wParam == WM_SYSKEYUP)) // Keyup
                 {
                     if (!goodDown)
                     { 
-                        std::cout << "bad up" << std::endl;
                         goodDown = true;
                         return 1;
                     }
-                    //std::cout << "good up" << std::endl;
                 }
             }
             break;
@@ -77,7 +77,8 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 int main(int argc, char* argv[])
 {
-    std::cout << "Space bar filter for HP 32 AIO keybaords (10mS window)" << std::endl;
+    std::cout << "Spacebar filter for HP Envy 32 AIO keybaords v1.0" << std::endl;
+    std::cout << "Filter window is " << (FILTER_WINDOW/1000) << "mS" << std::endl;
 
     QueryPerformanceFrequency(&Frequency);
 
