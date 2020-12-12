@@ -1,73 +1,39 @@
 // SpacebarFilter.cpp : This file contains the 'main' function. Program execution begins and ends there.
 //
 
-#if 0
-#include <stdio.h>
-#include <tchar.h>
-#include <Windows.h>
-#include <iostream>
-
-HHOOK hHook{ NULL };
-
-enum Keys
-{
-	ShiftKey = 16,
-	Capital = 20,
-};
-
-int shift_active() {
-	return GetKeyState(VK_LSHIFT) < 0 || GetKeyState(VK_RSHIFT) < 0;
-}
-
-int capital_active() {
-	return (GetKeyState(VK_CAPITAL) & 1) == 1;
-}
-
-LRESULT CALLBACK keyboard_hook(const int code, const WPARAM wParam, const LPARAM lParam) {
-	if (wParam == WM_KEYDOWN) {
-		KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
-		DWORD wVirtKey = kbdStruct->vkCode;
-		DWORD wScanCode = kbdStruct->scanCode;
-
-		BYTE lpKeyState[256];
-		GetKeyboardState(lpKeyState);
-		lpKeyState[Keys::ShiftKey] = 0;
-		lpKeyState[Keys::Capital] = 0;
-		if (shift_active()) {
-			lpKeyState[Keys::ShiftKey] = 0x80;
-		}
-		if (capital_active()) {
-			lpKeyState[Keys::Capital] = 0x01;
-		}
-
-		char result;
-		ToAscii(wVirtKey, wScanCode, lpKeyState, (LPWORD)&result, 0);
-		std::cout << result << std::endl;
-	}
-
-	return CallNextHookEx(hHook, code, wParam, lParam);
-}
-
-int main(int argc, char* argv[])
-{
-	hHook = SetWindowsHookEx(WH_KEYBOARD_LL, keyboard_hook, NULL, 0);
-	if (hHook == NULL) {
-		std::cout << "Keyboard hook failed!" << std::endl;
-	}
-
-	while (GetMessage(NULL, NULL, 0, 0));
-	return 0;
-}
-#else
-
 #include <Windows.h>
 #include <stdio.h>
 #include <iostream>
-//#define _WIN32_WINNT 0x050
+
+static LARGE_INTEGER StartingTime = {0};
+static LARGE_INTEGER Frequency    = {0};
+
+bool isGood()
+{
+    LARGE_INTEGER EndingTime;
+    LARGE_INTEGER ElapsedMicroseconds;
+
+    QueryPerformanceCounter(&EndingTime);
+
+    ElapsedMicroseconds.QuadPart = EndingTime.QuadPart - StartingTime.QuadPart;
+    ElapsedMicroseconds.QuadPart *= 1000000;
+    ElapsedMicroseconds.QuadPart /= Frequency.QuadPart;
+
+    StartingTime = EndingTime;
+
+    if (ElapsedMicroseconds.QuadPart > (1000 * 10))  // 10mS
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
 
 LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 {
-    BOOL fEatKeystroke = FALSE;
+    static bool goodDown;
 
     if (nCode == HC_ACTION)
     {
@@ -78,34 +44,51 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
         case WM_KEYUP:
         case WM_SYSKEYUP:
             PKBDLLHOOKSTRUCT p = (PKBDLLHOOKSTRUCT)lParam;
-            if (fEatKeystroke = (p->vkCode == 0x41))  //redirect a to b
+            if (p->vkCode == VK_SPACE)  // is spacebar
             {
-                std::cout << "Hello a" << std::endl;
-
                 if ((wParam == WM_KEYDOWN) || (wParam == WM_SYSKEYDOWN)) // Keydown
                 {
-                    keybd_event('B', 0, 0, 0);
+                    goodDown = isGood();
+                    if (!goodDown)
+                    { 
+                        std::cout << "bad down" << std::endl;
+                        return 1;
+                    }
+                    //std::cout << "good down" << std::endl; 
                 }
                 else if ((wParam == WM_KEYUP) || (wParam == WM_SYSKEYUP)) // Keyup
                 {
-                    keybd_event('B', 0, KEYEVENTF_KEYUP, 0);
+                    if (!goodDown)
+                    { 
+                        std::cout << "bad up" << std::endl;
+                        goodDown = true;
+                        return 1;
+                    }
+                    //std::cout << "good up" << std::endl;
                 }
-                break;
             }
             break;
         }
+
     }
-    return(fEatKeystroke ? 1 : CallNextHookEx(NULL, nCode, wParam, lParam));
+
+    return CallNextHookEx(NULL, nCode, wParam, lParam);
 }
 
 int main(int argc, char* argv[])
 {
+    std::cout << "Space bar filter for HP 32 AIO keybaords (10mS window)" << std::endl;
+
+    QueryPerformanceFrequency(&Frequency);
+
     // Install the low-level keyboard & mouse hooks
     HHOOK hhkLowLevelKybd = SetWindowsHookEx(WH_KEYBOARD_LL, LowLevelKeyboardProc, 0, 0);
 
     // Keep this app running until we're told to stop
     MSG msg;
-    while (!GetMessage(&msg, NULL, NULL, NULL)) {    //this while loop keeps the hook
+    while (!GetMessage(&msg, NULL, NULL, NULL)) 
+    {
+        //this while loop keeps the hook
         TranslateMessage(&msg);
         DispatchMessage(&msg);
     }
@@ -114,4 +97,4 @@ int main(int argc, char* argv[])
 
     return(0);
 }
-#endif
+
