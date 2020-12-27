@@ -77,7 +77,7 @@ LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam)
 
 int main(int argc, char* argv[])
 {
-    std::cout << "Spacebar filter for HP Envy 32 AIO keybaords v1.0" << std::endl;
+    std::cout << "Spacebar filter for HP Envy 32 AIO HSA-P009 Keybaords v1.0" << std::endl;
     std::cout << "Filter window is " << (FILTER_WINDOW/1000) << "mS" << std::endl;
 
     QueryPerformanceFrequency(&Frequency);
